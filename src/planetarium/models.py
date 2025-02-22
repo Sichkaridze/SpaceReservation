@@ -1,9 +1,8 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.base_user import BaseUserManager
-from django.contrib.auth.models import AbstractUser, UserManager as DjangoUserManager
+from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.db.models import DO_NOTHING
-from django.db.models.manager import BaseManager
 
 
 class UserManager(BaseUserManager):
@@ -36,7 +35,7 @@ class User(AbstractUser):
     username = None
     groups = models.ManyToManyField(
         "auth.Group",
-        related_name="planetarium_users",  # Унікальна назва для уникнення конфлікту
+        related_name="planetarium_users",
         blank=True,
         help_text="The groups this user belongs to.",
         verbose_name="groups",
@@ -44,7 +43,7 @@ class User(AbstractUser):
 
     user_permissions = models.ManyToManyField(
         "auth.Permission",
-        related_name="planetarium_users_permissions",  # Унікальна назва
+        related_name="planetarium_users_permissions",
         blank=True,
         help_text="Specific permissions for this user.",
         verbose_name="user permissions",
@@ -73,6 +72,16 @@ class AstronomyShow(models.Model):
 
     def __str__(self):
         return self.title
+
+
+
+class PlanetariumDome(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    rows = models.IntegerField()
+    seats_in_row = models.IntegerField()
+
+    def __str__(self):
+        return self.name
 
 
 class Reservation(models.Model):
@@ -114,15 +123,6 @@ class Ticket(models.Model):
             f"Dome: {self.show_session.planetarium_dome}\n"
             f"{self.row} row, {self.seat} seat."
         )
-
-
-class PlanetariumDome(models.Model):
-    name = models.CharField(max_length=255, unique=True)
-    rows = models.IntegerField()
-    seats_in_row = models.IntegerField()
-
-    def __str__(self):
-        return self.name
 
 
 class ShowSession(models.Model):
