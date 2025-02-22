@@ -1,6 +1,9 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.base_user import BaseUserManager
+from django.contrib.auth.models import AbstractUser, UserManager as DjangoUserManager
 from django.db import models
 from django.db.models import DO_NOTHING
+from django.db.models.manager import BaseManager
 
 
 class ShowTheme(models.Model):
@@ -95,3 +98,43 @@ class ShowSession(models.Model):
             f"Dome: {self.planetarium_dome}"
             f"Time: {self.show_time}"
         )
+
+
+class UserManager(BaseUserManager):
+    def create_user(self, email, first_name, last_name, password=None):
+        """ Create a new user profile """
+        if not email:
+            raise ValueError('User must have an email address')
+
+        email = self.normalize_email(email)
+        user = self.model(email=email, first_name=first_name, last_name=last_name)
+
+        user.set_password(password)
+        user.save(using=self._db)
+
+        return user
+
+    def create_superuser(self, email, first_name, last_name, password):
+        """ Create a new superuser profile """
+        user = self.create_user(email, first_name, last_name, password)
+        user.is_superuser = True
+        user.is_staff = True
+
+        user.save(using=self._db)
+
+        return user
+
+
+class User(AbstractUser):
+    email = models.EmailField(unique=True)
+    username = None
+
+    objects = UserManager()
+
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ("first_name", "last_name")
+
+    def __str__(self):
+        return (f"{self.first_name} {self.last_name}\n"
+                f"{self.email}")
+
