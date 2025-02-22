@@ -13,6 +13,11 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+
+load_dotenv()
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -44,7 +49,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # Custom apps:
-    'planetarium.apps.PlanetariumConfig',
+    'planetarium',
 
     # Third-party apps:
     'rest_framework',
@@ -53,6 +58,8 @@ INSTALLED_APPS = [
     'django_filters',
     'drf_spectacular',
 ]
+
+AUTH_USER_MODEL = 'planetarium.User'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -119,6 +126,8 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
+FIRST_DAY_OF_WEEK = 1
+
 LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'Europe/Kiev'
@@ -132,6 +141,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -155,6 +165,7 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': REFRESH_TOKEN_LIFETIME,
 }
 
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "SpaceReservation API",
     "DESCRIPTION": "A REST API for managing planetarium shows, ticket reservations, and user bookings.",
@@ -162,4 +173,13 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
 }
 
-AUTH_USER_MODEL = "planetarium.User"
+
+# smpt server configuration
+# https://docs.djangoproject.com/en/5.1/topics/email/
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
+EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "False") == "True"
