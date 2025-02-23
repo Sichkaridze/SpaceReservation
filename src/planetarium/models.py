@@ -168,7 +168,7 @@ class ShowSession(models.Model):
     )
     show_time = models.DateTimeField()
     duration = models.DurationField()
-    ticket_price = models.DecimalField(max_digits=10, decimal_places=0)
+    ticket_price = models.DecimalField(max_digits=10, decimal_places=2)
     class Meta:
         constraints = (
             models.UniqueConstraint(
@@ -186,4 +186,12 @@ class ShowSession(models.Model):
 
 
 class Payment(models.Model):
+    class Status(models.IntegerChoices):
+        PENDING = 0, 'Pending'
+        PAID = 1, 'Paid'
     reservation = models.OneToOneField(Reservation, on_delete=DO_NOTHING, related_name="payment")
+    session_url = models.URLField() # url to stripe payment session
+    session_id = models.CharField(max_length=255) # id of stripe payment session
+    amount_of_money = models.DecimalField(max_digits=10, decimal_places=2) # (in $USD) calculated total price
+# 4. Payment:
+# Status: Enum: PENDING | PAID

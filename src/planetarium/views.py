@@ -1,3 +1,7 @@
+import os
+
+from django.conf import settings
+from rest_framework.views import APIView
 from rest_framework.generics import CreateAPIView, RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
@@ -6,7 +10,18 @@ from planetarium.models import ShowTheme, AstronomyShow, Reservation, Planetariu
 from planetarium.permissions import IsOwnerOrAdmin
 from planetarium.serializers import ShowThemeSerializer, AstronomyShowSerializer, ReservationSerializer, \
     PlanetariumDomeSerializer, TicketCreateSerializer, ShowSessionListSerializer, \
-    ShowSessionDetailSerializer, ShowSessionSerializer, UserSerializer
+    ShowSessionDetailSerializer, ShowSessionSerializer, UserSerializer, CardInformationSerializer
+
+
+class PaymentAPI(APIView):
+    serializer_class = CardInformationSerializer
+    permission_classes = (AllowAny,)
+
+    def post(self, request):
+        pass
+
+    def stripe_card_payment(self, data_dict):
+        pass
 
 
 class ShowThemeViewSet(ModelViewSet):
@@ -34,6 +49,9 @@ class ReservationViewSet(ReadOnlyModelViewSet):
         if user.is_staff:
             return Reservation.objects.all().select_related()
         return Reservation.objects.filter(user=user)
+
+class ReservationCreateView():
+    pass
 
 class TicketView(CreateAPIView):
     queryset = Ticket.objects.all().select_related("reservation", "show_session")
