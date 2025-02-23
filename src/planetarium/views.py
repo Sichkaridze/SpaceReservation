@@ -1,12 +1,12 @@
-from rest_framework.generics import CreateAPIView
-from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework.generics import CreateAPIView, RetrieveUpdateAPIView
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
 from planetarium.models import ShowTheme, AstronomyShow, Reservation, PlanetariumDome, Ticket, ShowSession
-from planetarium.permissions import IsOwnerOrAdmin, IsAdminUserOrReadOnly
+from planetarium.permissions import IsOwnerOrAdmin
 from planetarium.serializers import ShowThemeSerializer, AstronomyShowSerializer, ReservationSerializer, \
     PlanetariumDomeSerializer, TicketCreateSerializer, ShowSessionListSerializer, \
-    ShowSessionDetailSerializer, ShowSessionSerializer
+    ShowSessionDetailSerializer, ShowSessionSerializer, UserSerializer
 
 
 class ShowThemeViewSet(ModelViewSet):
@@ -51,3 +51,16 @@ class ShowSessionViewSet(ModelViewSet):
         elif self.action == "retrieve":
             return ShowSessionDetailSerializer
         return ShowSessionSerializer
+
+
+class CreateUserView(CreateAPIView):
+    serializer_class = UserSerializer
+    permission_classes = (AllowAny, )
+
+
+class UpdateUserView(RetrieveUpdateAPIView):
+    serializer_class = UserSerializer
+    permission_classes = (IsAuthenticated, )
+
+    def get_object(self):
+        return self.request.user
