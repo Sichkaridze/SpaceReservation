@@ -132,9 +132,12 @@ LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'Europe/Kiev'
 
-USE_I18N = True
-
+USE_I18N = False
+USE_L10N = False
 USE_TZ = True
+
+DATE_FORMAT = 'd-m-Y'
+DATETIME_FORMAT = 'd b Y - H:i:s'
 
 
 # Static files (CSS, JavaScript, Images)
@@ -151,9 +154,17 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    'DEFAULT_PERMISSION_CLASSES': (
+        # "planetarium.permissions.IsAdminUserOrReadOnly",
     ),
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        # 'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+    ),
+    'DATE_FORMAT': "%d %B %Y",
+    'TIME_FORMAT': "%H:%M",
+    'DATETIME_FORMAT': "%d %B %Y, %H:%M",
+
 }
 
 

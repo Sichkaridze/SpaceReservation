@@ -1,10 +1,12 @@
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.generics import CreateAPIView
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
-from planetarium.models import ShowTheme, AstronomyShow, Reservation, PlanetariumDome, Ticket
-from planetarium.permissions import IsOwnerOrAdmin
+from planetarium.models import ShowTheme, AstronomyShow, Reservation, PlanetariumDome, Ticket, ShowSession
+from planetarium.permissions import IsOwnerOrAdmin, IsAdminUserOrReadOnly
 from planetarium.serializers import ShowThemeSerializer, AstronomyShowSerializer, ReservationSerializer, \
-    PlanetariumDomeSerializer, TicketSerializer
+    PlanetariumDomeSerializer, TicketCreateSerializer, ShowSessionListSerializer, \
+    ShowSessionDetailSerializer, ShowSessionSerializer
 
 
 class ShowThemeViewSet(ModelViewSet):
@@ -33,10 +35,19 @@ class ReservationViewSet(ReadOnlyModelViewSet):
             return Reservation.objects.all().select_related()
         return Reservation.objects.filter(user=user)
 
-class TicketViewSet(ModelViewSet):
+class TicketView(CreateAPIView):
     queryset = Ticket.objects.all().select_related("reservation", "show_session")
-    serializer_class = TicketSerializer
+    serializer_class = TicketCreateSerializer
 
 
 class ShowSessionViewSet(ModelViewSet):
-    pass
+    queryset = ShowSession.objects.all().select_related("astronomy_show", "planetarium_dome")
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return ShowSessionListSerializer
+        elif self.action == "create":
+            return ShowSessionSerializer
+        elif self.action == "retrieve":
+            return ShowSessionDetailSerializer
+        return ShowSessionSerializer
