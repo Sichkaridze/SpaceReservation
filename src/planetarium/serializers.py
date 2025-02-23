@@ -7,28 +7,23 @@ from rest_framework.validators import UniqueTogetherValidator
 
 from planetarium.models import ShowTheme, AstronomyShow, Reservation, PlanetariumDome, Ticket, ShowSession
 
-
 def check_expiry_month(value):
     if not 1 <= int(value) <= 12:
         raise serializers.ValidationError("Invalid expiry month.")
-
 
 def check_expiry_year(value):
     today = datetime.now()
     if not int(value) >= today.year:
         raise serializers.ValidationError("Invalid expiry year.")
 
-
 def check_cvc(value):
     if not 3 <= len(value) <= 4:
         raise serializers.ValidationError("Invalid cvc number.")
-
 
 def check_payment_method(value):
     payment_method = value.lower()
     if payment_method not in ["card"]:
         raise serializers.ValidationError("Invalid payment_method.")
-
 
 class CardInformationSerializer(serializers.Serializer):
     card_number = serializers.CharField(max_length=150, required=True)
@@ -48,7 +43,6 @@ class CardInformationSerializer(serializers.Serializer):
         validators=(check_cvc, )
     )
 
-
 class UserSerializer(ModelSerializer):
     class Meta:
         model = get_user_model()
@@ -67,31 +61,26 @@ class UserSerializer(ModelSerializer):
             user.save()
         return user
 
-
 class ShowThemeSerializer(ModelSerializer):
     class Meta:
         model = ShowTheme
         fields = "__all__"
-
 
 class AstronomyShowSerializer(ModelSerializer):
     class Meta:
         model = AstronomyShow
         fields = "__all__"
 
-
 class PlanetariumDomeSerializer(ModelSerializer):
     class Meta:
         model = PlanetariumDome
         fields = "__all__"
-
 
 class TicketSerializer(ModelSerializer):
     show_session = StringRelatedField()
     class Meta:
         model = Ticket
         exclude = "reservation",
-
 
 class TicketCreateSerializer(ModelSerializer):
     class Meta:
@@ -104,7 +93,6 @@ class TicketCreateSerializer(ModelSerializer):
                 message="This seat is already taken."
             ),
         )
-
 
     def create(self, validated_data):
         """
@@ -119,7 +107,6 @@ class TicketCreateSerializer(ModelSerializer):
         validated_data["reservation"] = reservation
         return super().create(validated_data)
 
-
 class ReservationSerializer(ModelSerializer):
     user = UserSerializer()
     tickets = TicketSerializer(many=True)
@@ -127,11 +114,9 @@ class ReservationSerializer(ModelSerializer):
         model = Reservation
         fields = "__all__"
 
-
 class ReservationDetailSerializer(ModelSerializer):
     """Will include info about payment""" # TODO Implement Detail Serializer with payment info for reservation
     pass
-
 
 class ShowSessionSerializer(ModelSerializer):
     class Meta:
@@ -145,7 +130,6 @@ class ShowSessionSerializer(ModelSerializer):
             ),
         )
 
-
 class ShowSessionListSerializer(ModelSerializer):
     astronomy_show = SlugRelatedField(slug_field="title", read_only=True)
     planetarium_dome = SlugRelatedField( slug_field="name", read_only=True)
@@ -153,7 +137,6 @@ class ShowSessionListSerializer(ModelSerializer):
     class Meta:
         model = ShowSession
         fields = "__all__"
-
 
 class ShowSessionDetailSerializer(ModelSerializer):
     astronomy_show = AstronomyShowSerializer()

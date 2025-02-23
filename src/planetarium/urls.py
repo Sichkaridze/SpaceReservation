@@ -2,7 +2,8 @@ from django.urls import path, include
 from rest_framework import routers
 
 from planetarium.views import ShowThemeViewSet, AstronomyShowViewSet, ReservationViewSet, PlanetariumDomeViewSet, \
-    ShowSessionViewSet, CreateUserView, UpdateUserView, PaymentAPI
+    ShowSessionViewSet, CreateUserView, UpdateUserView, StripeCheckoutAPI, \
+    StripeSuccessAPI, StripeCancelAPI
 
 app_name = "planetarium"
 
@@ -18,5 +19,7 @@ urlpatterns = [
     path("", include(router.urls)),
     path("register/", CreateUserView.as_view(), name="create-user"),
     path("me/", UpdateUserView.as_view(), name="update-user"),
-    path('make_payment/', PaymentAPI.as_view(), name='make_payment')
+    path("stripe/checkout/", StripeCheckoutAPI.as_view(), name="stripe-checkout"),
+    path("stripe/success/", StripeSuccessAPI.as_view(), name="stripe-success"),
+    path("stripe/cancel/", StripeCancelAPI.as_view(), name="stripe-cancel"),
 ]

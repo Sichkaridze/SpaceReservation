@@ -7,7 +7,6 @@ from django.db import models
 from django.db.models import DO_NOTHING
 from django.utils.timezone import now
 
-
 class UserManager(BaseUserManager):
     def create_user(self, email, first_name, last_name, password=None):
         """ Create a new user profile """
@@ -35,7 +34,6 @@ class UserManager(BaseUserManager):
         user.save(using=self._db)
 
         return user
-
 
 class User(AbstractUser):
     email = models.EmailField(unique=True)
@@ -68,13 +66,11 @@ class User(AbstractUser):
         return (f"{self.first_name} {self.last_name}\n"
                 f"{self.email}")
 
-
 class ShowTheme(models.Model):
     name = models.CharField(max_length=255, unique=True)
 
     def __str__(self):
         return self.name
-
 
 class AstronomyShow(models.Model):
     title = models.CharField(max_length=255)
@@ -83,8 +79,6 @@ class AstronomyShow(models.Model):
     def __str__(self):
         return self.title
 
-
-
 class PlanetariumDome(models.Model):
     name = models.CharField(max_length=255, unique=True)
     rows = models.IntegerField()
@@ -92,7 +86,6 @@ class PlanetariumDome(models.Model):
 
     def __str__(self):
         return self.name
-
 
 class Reservation(models.Model):
     class Status(models.IntegerChoices):
@@ -117,7 +110,6 @@ class Reservation(models.Model):
         if self.is_expired():
             self.status = self.Status.CANCELLED
             self.save()
-
 
 class Ticket(models.Model):
     class Status(models.IntegerChoices):
@@ -154,7 +146,6 @@ class Ticket(models.Model):
             f"{self.row} row, {self.seat} seat."
         )
 
-
 class ShowSession(models.Model):
     astronomy_show = models.ForeignKey(
         AstronomyShow,
@@ -183,7 +174,6 @@ class ShowSession(models.Model):
             f"Dome: {self.planetarium_dome}\n"
             f"Time: {self.show_time}"
         )
-
 
 class Payment(models.Model):
     class Status(models.IntegerChoices):
