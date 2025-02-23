@@ -1,7 +1,9 @@
 import os
-
+import stripe
 from django.conf import settings
 from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 from rest_framework.generics import CreateAPIView, RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
@@ -18,10 +20,42 @@ class PaymentAPI(APIView):
     permission_classes = (AllowAny,)
 
     def post(self, request):
-        pass
+        serializer = CardInformationSerializer(data=request.data)
+        if serializer.is_valid(raise_exception=True):
+            try:
+                result = self.stripe_card_payment(serializer.validated_data)
+                return Response(result)
+            except Exception as e:
+                return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def stripe_card_payment(self, data_dict):
-        pass
+        stripe.api_key = settings.STRIPE_SECRET_KEY
+        try:
+            card_token = stripe.Token.create(
+                card={
+                    "number": data_dict.get("card_number"),
+                    "exp_month": data_dict.get("expiry_month"),
+                    "exp_year": data_dict.get("expiry_year"),
+                    "cvc": data_dict.get("cvv"),
+                }
+            )
+            payment = stripe.Charge.create(
+                amount=data_dict.get("amount"),
+                currency="usd",
+                source=card_token.id,
+                description=f"Test payment for {data_dict.get('email')}"
+            )
+            return {
+                "status": payment.status,
+                "payment_id": payment.id,
+                "amount": payment.amount / 100,  # Convert cents to dollars
+            }
+        except stripe.error.CardError as e:
+            raise Exception(f"Card error: {e.error.message}")
+        except stripe.error.StripeError as e:
+            raise Exception(f"Payment failed: {str(e)}")
+
 
 
 class ShowThemeViewSet(ModelViewSet):
