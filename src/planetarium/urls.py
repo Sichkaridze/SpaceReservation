@@ -3,8 +3,8 @@ from rest_framework import routers
 
 from planetarium.views import (
     ShowThemeViewSet, AstronomyShowViewSet, ReservationViewSet, PlanetariumDomeViewSet,
-    ShowSessionViewSet, CreateUserView, UpdateUserView, StripeCheckoutAPI,
-    StripeSuccessAPI, StripeCancelAPI, ReservationCreateView, TicketView
+    ShowSessionViewSet, CreateUserView, UpdateUserView,
+    StripeSuccessAPI, StripeCancelAPI
 )
 
 app_name = "planetarium"
@@ -19,18 +19,11 @@ router.register("show_sessions", ShowSessionViewSet)
 urlpatterns = [
     path("", include(router.urls)),
 
-    # Користувачі
+
     path("register/", CreateUserView.as_view(), name="create-user"),
     path("me/", UpdateUserView.as_view(), name="update-user"),
 
-    # Створення бронювання
-    path("reservations/create/", ReservationCreateView.as_view(), name="reservation-create"),
 
-    # Оплата через Stripe
-    path("stripe/checkout/", StripeCheckoutAPI.as_view(), name="stripe-checkout"),
     path("stripe/success/", StripeSuccessAPI.as_view(), name="stripe-success"),
     path("stripe/cancel/", StripeCancelAPI.as_view(), name="stripe-cancel"),
-
-    # Додавання квитка в бронювання
-    path("tickets/create/", TicketView.as_view(), name="ticket-create"),
 ]

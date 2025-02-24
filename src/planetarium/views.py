@@ -1,88 +1,28 @@
 import stripe
 from django.conf import settings
-from django.urls import reverse
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.generics import CreateAPIView, RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
+from rest_framework.viewsets import ModelViewSet
 
-from planetarium.models import ShowTheme, AstronomyShow, Reservation, PlanetariumDome, Ticket, ShowSession, Payment
+from planetarium.models import (
+    ShowTheme, AstronomyShow, Reservation, PlanetariumDome, ShowSession, Payment
+)
 from planetarium.permissions import IsOwnerOrAdmin
 from planetarium.serializers import (
     ShowThemeSerializer, AstronomyShowSerializer, ReservationSerializer,
-    PlanetariumDomeSerializer, TicketCreateSerializer, ShowSessionListSerializer,
-    ShowSessionDetailSerializer, ShowSessionSerializer, UserSerializer, PaymentSerializer, EmptySerializer
+    PlanetariumDomeSerializer, ShowSessionListSerializer,
+    ShowSessionDetailSerializer, ShowSessionSerializer, UserSerializer,
+    ReservationCreateSerializer, ReservationDetailSerializer
 )
-
-
-class StripeCheckoutAPI(APIView):
-    """
-    Створення Stripe Checkout Session для бронювання.
-    """
-    serializer_class = EmptySerializer
-    permission_classes = (AllowAny,)
-
-
-    def post(self, request):
-        stripe.api_key = settings.STRIPE_SECRET_KEY
-
-        reservation_id = request.data.get("reservation_id")
-        try:
-            reservation = Reservation.objects.get(id=reservation_id, status=Reservation.Status.PENDING)
-        except Reservation.DoesNotExist:
-            return Response({"error": "Reservation not found or already paid."}, status=status.HTTP_404_NOT_FOUND)
-
-        # Отримуємо загальну вартість бронювання
-        total_amount = reservation.total_price()
-        if total_amount == 0:
-            return Response({"error": "Cannot process payment for an empty reservation."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Посилання на сторінки успіху/відміни
-        success_url = request.build_absolute_uri(reverse("planetarium:stripe-success")) + "?session_id={CHECKOUT_SESSION_ID}"
-        cancel_url = request.build_absolute_uri(reverse("planetarium:stripe-cancel"))
-
-        try:
-            # Створення Stripe Checkout Session
-            checkout_session = stripe.checkout.Session.create(
-                payment_method_types=["card"],
-                line_items=[
-                    {
-                        "price_data": {
-                            "currency": "usd",
-                            "product_data": {
-                                "name": f"Reservation {reservation.id} - Planetarium",
-                            },
-                            "unit_amount": int(total_amount * 100),  # Stripe працює в центах
-                        },
-                        "quantity": 1,
-                    }
-                ],
-                mode="payment",
-                success_url=success_url,
-                cancel_url=cancel_url,
-            )
-
-            # Створюємо об'єкт Payment
-            payment = Payment.objects.create(
-                reservation=reservation,
-                session_id=checkout_session.id,
-                session_url=checkout_session.url,
-                amount_of_money=total_amount,
-                status=Payment.Status.PENDING
-            )
-
-            return Response({"checkout_url": checkout_session.url, "session_id": checkout_session.id})
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class StripeSuccessAPI(APIView):
     """
-    Перевірка успішного платежу через session_id.
+    Verifies successful payment using session_id.
     """
-    serializer_class = EmptySerializer
     permission_classes = (AllowAny,)
 
     def get(self, request):
@@ -95,10 +35,10 @@ class StripeSuccessAPI(APIView):
         try:
             session = stripe.checkout.Session.retrieve(session_id)
             if session.payment_status == "paid":
-                # Отримуємо оплату по session_id
+                # Retrieve payment record by session_id
                 payment = Payment.objects.filter(session_id=session_id).first()
                 if payment:
-                    payment.mark_as_paid()  # Оновлення статусу оплати та квитків
+                    payment.mark_as_paid()  # Updates payment and ticket statuses
                     return Response({"message": "Payment successful", "reservation_id": payment.reservation.id})
 
                 return Response({"error": "Payment not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -111,9 +51,8 @@ class StripeSuccessAPI(APIView):
 
 class StripeCancelAPI(APIView):
     """
-    Відповідь, якщо користувач скасував оплату.
+    Handles cases where the user cancels the payment.
     """
-    serializer_class = EmptySerializer
     permission_classes = (AllowAny,)
 
     def get(self, request):
@@ -121,52 +60,79 @@ class StripeCancelAPI(APIView):
 
 
 class ShowThemeViewSet(ModelViewSet):
+    """ViewSet for managing show themes."""
     queryset = ShowTheme.objects.all()
     serializer_class = ShowThemeSerializer
 
 
 class AstronomyShowViewSet(ModelViewSet):
+    """ViewSet for managing astronomy shows."""
     queryset = AstronomyShow.objects.all()
     serializer_class = AstronomyShowSerializer
 
 
 class PlanetariumDomeViewSet(ModelViewSet):
+    """ViewSet for managing planetarium domes."""
     queryset = PlanetariumDome.objects.all()
     serializer_class = PlanetariumDomeSerializer
 
 
-class ReservationViewSet(ReadOnlyModelViewSet):
+class ReservationViewSet(ModelViewSet):
+    """
+    ViewSet for retrieving and creating reservations.
+    """
     queryset = Reservation.objects.all().select_related("user")
-    serializer_class = ReservationSerializer
     permission_classes = (IsAuthenticated, IsOwnerOrAdmin)
 
+    # def get_permissions(self): # TODO create get permissions
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return ReservationCreateSerializer
+        elif self.action == "retrieve":
+            return ReservationDetailSerializer
+        return ReservationSerializer
+
     def get_queryset(self):
+        """
+        If the user is staff, return all reservations.
+        Otherwise, return only the user's own reservations.
+        """
         user = self.request.user
         if user.is_staff:
             return Reservation.objects.all().select_related("user")
         return Reservation.objects.filter(user=user)
 
+    def create(self, request, *args, **kwargs):
+        """
+        Returns `payment_url` after creating a reservation.
+        """
 
-class ReservationCreateView(CreateAPIView):
-    """
-    API для створення бронювання.
-    """
-    queryset = Reservation.objects.all()
-    serializer_class = ReservationSerializer
-    permission_classes = (IsAuthenticated,)
+        # Handles the API request: Validates, processes, and returns the response/
+        if not request.data.get("tickets"):
+            return Response({"error": f"Cannot create empty reservation"}, status=status.HTTP_400_BAD_REQUEST)
 
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Save the reservation and tickets
+        self.perform_create(serializer)
+        reservation = serializer.instance
+
+        return Response({"redirect_url": reservation.payment.session_url}, status=status.HTTP_201_CREATED)
 
     def perform_create(self, serializer):
+        """
+        Automatically assigns the current user to the new reservation.
+        """
+
+        # Handles data saving: Assigns user before calling serializer.save().
         serializer.save(user=self.request.user)
 
 
-class TicketView(CreateAPIView):
-    queryset = Ticket.objects.all().select_related("reservation", "show_session")
-    serializer_class = TicketCreateSerializer
-    permission_classes = (IsAuthenticated,)
-
-
 class ShowSessionViewSet(ModelViewSet):
+    """ViewSet for managing show sessions."""
+
     queryset = ShowSession.objects.all().select_related("astronomy_show", "planetarium_dome")
 
     def get_serializer_class(self):
@@ -180,11 +146,13 @@ class ShowSessionViewSet(ModelViewSet):
 
 
 class CreateUserView(CreateAPIView):
+    """API view for user registration."""
     serializer_class = UserSerializer
     permission_classes = (AllowAny,)
 
 
 class UpdateUserView(RetrieveUpdateAPIView):
+    """API view for updating user profile."""
     serializer_class = UserSerializer
     permission_classes = (IsAuthenticated,)
 
