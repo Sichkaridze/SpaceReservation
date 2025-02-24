@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AnonymousUser
 from django.db import transaction
 from rest_framework.relations import SlugRelatedField, StringRelatedField
 from rest_framework import serializers
@@ -156,9 +157,10 @@ class ReservationCreateSerializer(ModelSerializer):
         tickets_data = validated_data.pop("tickets")
 
         user = self.context["request"].user
-
-        # Create a reservation
-        reservation = Reservation.objects.create(user=user)
+        if user.is_authenticated:
+            reservation = Reservation.objects.create(user=user)
+        else:
+            reservation = Reservation.objects.create(user=None)  # Anonymous user
 
         # Add tickets
         Ticket.objects.bulk_create(

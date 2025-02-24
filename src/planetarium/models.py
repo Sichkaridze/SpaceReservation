@@ -141,8 +141,29 @@ class Reservation(models.Model):
     status = models.IntegerField(choices=Status.choices, default=Status.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     user = models.ForeignKey(
-        get_user_model(), on_delete=models.CASCADE, related_name="reservations"
+        get_user_model(), on_delete=models.CASCADE, related_name="reservations", null=True
     )
+
+    def assign_user_from_stripe(self, stripe_customer_details):
+        """
+        Assigns a user to the reservation based on Stripe payment details.
+        If the user exists, updates their first and last name.
+        """
+        email = stripe_customer_details.get("email")
+        name_parts = stripe_customer_details.get("name", "Anonymous User").split(" ")
+
+        first_name = name_parts[0] if len(name_parts) > 0 else "Anonymous"
+        last_name = name_parts[1] if len(name_parts) > 1 else "User"
+
+        # Create or update user
+        user, created = get_user_model().objects.update_or_create(
+            email=email,
+            defaults={"first_name": first_name, "last_name": last_name}
+        )
+
+        # Assign the user to the reservation
+        self.user = user
+        self.save()
 
     def is_expired(self):
         """Checks if the reservation has expired (15 minutes after creation)."""
@@ -172,6 +193,8 @@ class Reservation(models.Model):
         # Calculate total price
         total_amount = self.total_price()
 
+        user_email = self.user.email if self.user else None
+
         if total_amount == 0:
             raise ValueError("Cannot process payment for an empty reservation.")
 
@@ -180,17 +203,27 @@ class Reservation(models.Model):
         cancel_url = request.build_absolute_uri(reverse("planetarium:stripe-cancel"))
 
         checkout_session = stripe.checkout.Session.create(
+            customer_email=user_email,
+            allow_promotion_codes=True,
             payment_method_types=["card"],
+            # custom_fields=[
+            #     {
+            #         "key": "email_verification",
+            #         "label": {"type": "custom", "custom": "Enter your correct email"},
+            #         "type": "text",
+            #         "optional": False,
+            #     }
+            # ],
             line_items=[
                 {
                     "price_data": {
                         "currency": "usd",
                         "product_data": {
-                            "name": f"Tickets reservation",
-                            "description":  f"Tickets for '{self.tickets.first().show_session.astronomy_show.title}' "
-                                            f"on {self.tickets.first().show_session.show_time.strftime('%d %B %Y, %H:%M')} "
-                                            f"in {self.tickets.first().show_session.planetarium_dome.name}. "
-                                            f"Seats: {', '.join(f'Row {ticket.row}, Seat {ticket.seat}' for ticket in self.tickets.all())}"
+                            "name": "Planetarium Ticket Reservation 🎟️",
+                            "description": (
+                                "⚠️ Please enter a valid email. "
+                                "Tickets will be sent there after payment confirmation."
+                            )
                         },
                         "unit_amount": int(total_amount * 100),  # Stripe works in cents
                     },

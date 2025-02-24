@@ -1,5 +1,7 @@
 import stripe
 from django.conf import settings
+from django.contrib.auth.models import AnonymousUser
+from django.db import transaction
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -25,6 +27,7 @@ class StripeSuccessAPI(APIView):
     """
     permission_classes = (AllowAny,)
 
+    @transaction.atomic
     def get(self, request):
         stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -37,11 +40,19 @@ class StripeSuccessAPI(APIView):
             if session.payment_status == "paid":
                 # Retrieve payment record by session_id
                 payment = Payment.objects.filter(session_id=session_id).first()
-                if payment:
-                    payment.mark_as_paid()  # Updates payment and ticket statuses
-                    return Response({"message": "Payment successful", "reservation_id": payment.reservation.id})
 
-                return Response({"error": "Payment not found"}, status=status.HTTP_404_NOT_FOUND)
+                if not payment:
+                    return Response({"error": "Payment not found"}, status=status.HTTP_404_NOT_FOUND)
+
+                reservation = payment.reservation
+
+                # Assign user from Stripe payment details if not already assigned
+                if not reservation.user:
+                    reservation.assign_user_from_stripe(session.customer_details)
+
+                payment.mark_as_paid()  # Updates payment and ticket statuses
+                return Response({"message": "Payment successful", "reservation_id": payment.reservation.id})
+
 
             return Response({"error": "Payment not completed"}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -80,13 +91,25 @@ class PlanetariumDomeViewSet(ModelViewSet):
 class ReservationViewSet(ModelViewSet):
     """
     ViewSet for retrieving and creating reservations.
+    Updating and deleting reservations is **not allowed**.
     """
     queryset = Reservation.objects.all().select_related("user")
-    permission_classes = (IsAuthenticated, IsOwnerOrAdmin)
+    http_method_names = ["get", "post"]
 
-    # def get_permissions(self): # TODO create get permissions
+    def get_permissions(self):
+        """
+        Assign permissions dynamically:
+        - `create`: Any user can create a reservation (anonymous or authenticated).
+        - Other actions: Only authenticated users.
+        """
+        if self.action == "create":
+            return (AllowAny(),)
+        return (IsAuthenticated(), IsOwnerOrAdmin())
 
     def get_serializer_class(self):
+        """
+        Selects the appropriate serializer based on the action.
+        """
         if self.action == "create":
             return ReservationCreateSerializer
         elif self.action == "retrieve":
@@ -95,39 +118,44 @@ class ReservationViewSet(ModelViewSet):
 
     def get_queryset(self):
         """
-        If the user is staff, return all reservations.
-        Otherwise, return only the user's own reservations.
+        Staff users can view all reservations.
+        Regular users only see their own.
         """
         user = self.request.user
         if user.is_staff:
             return Reservation.objects.all().select_related("user")
         return Reservation.objects.filter(user=user)
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         """
-        Returns `payment_url` after creating a reservation.
+        Creates a reservation and returns a `payment_url`.
         """
 
-        # Handles the API request: Validates, processes, and returns the response/
+        # Validate request payload
         if not request.data.get("tickets"):
-            return Response({"error": f"Cannot create empty reservation"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Cannot create an empty reservation."}, status=status.HTTP_400_BAD_REQUEST)
 
-        serializer = self.get_serializer(data=request.data)
+        serializer = ReservationCreateSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
 
-        # Save the reservation and tickets
+        # Save reservation and tickets
         self.perform_create(serializer)
         reservation = serializer.instance
+        # reservation.refresh_from_db()
 
-        return Response({"redirect_url": reservation.payment.session_url}, status=status.HTTP_201_CREATED)
+        payment = Payment.objects.filter(reservation=reservation).first()
 
+        return Response({"redirect_url": payment.session_url}, status=status.HTTP_201_CREATED)
+
+    @transaction.atomic
     def perform_create(self, serializer):
         """
-        Automatically assigns the current user to the new reservation.
+        Automatically assigns the current user to the reservation if authenticated.
+        If the user is anonymous, `user=None` is stored, but will be updated later.
         """
-
-        # Handles data saving: Assigns user before calling serializer.save().
-        serializer.save(user=self.request.user)
+        user = self.request.user if self.request.user.is_authenticated else None
+        serializer.save(user=user)
 
 
 class ShowSessionViewSet(ModelViewSet):
