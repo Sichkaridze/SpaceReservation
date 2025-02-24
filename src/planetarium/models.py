@@ -1,3 +1,5 @@
+import pathlib
+import uuid
 from datetime import timedelta
 
 import stripe
@@ -7,6 +9,7 @@ from django.contrib.auth.base_user import BaseUserManager
 from django.contrib.auth.models import AbstractUser
 from django.db import models, transaction
 from django.db.models import DO_NOTHING, Sum
+from django.utils.text import slugify
 from django.utils.timezone import now
 from rest_framework.reverse import reverse
 
@@ -79,12 +82,21 @@ class ShowTheme(models.Model):
     def __str__(self):
         return self.name
 
+# ______________________________________________________________________________________
+
+def poster_image_path(instance, filename: str) -> pathlib.Path:
+    """Generates a unique file path for storing poster images."""
+    filename = f"{slugify(instance.title)}-{uuid.uuid4()}" + pathlib.Path(filename).suffix
+    return pathlib.Path("upload/posters") / pathlib.Path(filename)
+# ______________________________________________________________________________________
+
 
 class AstronomyShow(models.Model):
     """Model representing an astronomy show."""
 
     title = models.CharField(max_length=255)
     description = models.TextField(null=True, blank=True)
+    poster = models.ImageField(null=True, blank=True, upload_to=poster_image_path)
 
     def __str__(self):
         return self.title

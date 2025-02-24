@@ -16,6 +16,7 @@ inflection==0.5.1
 jsonschema==4.23.0
 jsonschema-specifications==2024.10.1
 Markdown==3.7
+pillow==11.1.0
 pycparser==2.22
 PyJWT==2.10.1
 python-dotenv==1.0.1
