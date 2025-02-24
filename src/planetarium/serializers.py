@@ -1,49 +1,16 @@
-from datetime import datetime
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from rest_framework.relations import SlugRelatedField, StringRelatedField
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
 from rest_framework.validators import UniqueTogetherValidator
 
-from planetarium.models import ShowTheme, AstronomyShow, Reservation, PlanetariumDome, Ticket, ShowSession
+from planetarium.models import ShowTheme, AstronomyShow, Reservation, PlanetariumDome, Ticket, ShowSession, Payment
 
-def check_expiry_month(value):
-    if not 1 <= int(value) <= 12:
-        raise serializers.ValidationError("Invalid expiry month.")
-
-def check_expiry_year(value):
-    today = datetime.now()
-    if not int(value) >= today.year:
-        raise serializers.ValidationError("Invalid expiry year.")
-
-def check_cvc(value):
-    if not 3 <= len(value) <= 4:
-        raise serializers.ValidationError("Invalid cvc number.")
-
-def check_payment_method(value):
-    payment_method = value.lower()
-    if payment_method not in ["card"]:
-        raise serializers.ValidationError("Invalid payment_method.")
-
-class CardInformationSerializer(serializers.Serializer):
-    card_number = serializers.CharField(max_length=150, required=True)
-    expiry_month = serializers.CharField(
-        max_length=150,
-        required=True,
-        validators=(check_expiry_month, )
-    )
-    expiry_year = serializers.CharField(
-        max_length=150,
-        required=True,
-        validators=(check_expiry_year, )
-    )
-    cvc = serializers.CharField(
-        max_length=150,
-        required=True,
-        validators=(check_cvc, )
-    )
 
 class UserSerializer(ModelSerializer):
+    """Serializer for user data."""
+
     class Meta:
         model = get_user_model()
         fields = ("id", "email", "first_name", "last_name", "password", "is_staff")
@@ -61,64 +28,34 @@ class UserSerializer(ModelSerializer):
             user.save()
         return user
 
+
 class ShowThemeSerializer(ModelSerializer):
+    """Serializer for show themes."""
+
     class Meta:
         model = ShowTheme
         fields = "__all__"
 
+
 class AstronomyShowSerializer(ModelSerializer):
+    """Serializer for astronomy shows."""
+
     class Meta:
         model = AstronomyShow
         fields = "__all__"
 
+
 class PlanetariumDomeSerializer(ModelSerializer):
+    """Serializer for planetarium domes."""
+
     class Meta:
         model = PlanetariumDome
         fields = "__all__"
 
-class TicketSerializer(ModelSerializer):
-    show_session = StringRelatedField()
-    class Meta:
-        model = Ticket
-        exclude = "reservation",
-
-class TicketCreateSerializer(ModelSerializer):
-    class Meta:
-        model = Ticket
-        fields = "__all__"
-        validators = (
-            UniqueTogetherValidator(
-                queryset= Ticket.objects.all().select_related("reservation", "show_session"),
-                fields=("row", "seat", "show_session"),
-                message="This seat is already taken."
-            ),
-        )
-
-    def create(self, validated_data):
-        """
-        Creates a ticket and ensures it is linked to a valid reservation.
-        If no active reservation exists for the user, a new one is created.
-        """
-
-        request = self.context.get("request")
-        user = request.user
-
-        reservation = Reservation.objects.get_or_create(user=user, status=Reservation.Status.PENDING)
-        validated_data["reservation"] = reservation
-        return super().create(validated_data)
-
-class ReservationSerializer(ModelSerializer):
-    user = UserSerializer()
-    tickets = TicketSerializer(many=True)
-    class Meta:
-        model = Reservation
-        fields = "__all__"
-
-class ReservationDetailSerializer(ModelSerializer):
-    """Will include info about payment""" # TODO Implement Detail Serializer with payment info for reservation
-    pass
 
 class ShowSessionSerializer(ModelSerializer):
+    """Serializer for show sessions with validation to prevent scheduling conflicts."""
+
     class Meta:
         model = ShowSession
         fields = "__all__"
@@ -130,17 +67,119 @@ class ShowSessionSerializer(ModelSerializer):
             ),
         )
 
+
 class ShowSessionListSerializer(ModelSerializer):
+    """Serializer for listing show sessions with related fields."""
+
     astronomy_show = SlugRelatedField(slug_field="title", read_only=True)
-    planetarium_dome = SlugRelatedField( slug_field="name", read_only=True)
+    planetarium_dome = SlugRelatedField(slug_field="name", read_only=True)
 
     class Meta:
         model = ShowSession
         fields = "__all__"
 
+
 class ShowSessionDetailSerializer(ModelSerializer):
+    """Serializer for detailed view of a show session."""
+
     astronomy_show = AstronomyShowSerializer()
     planetarium_dome = PlanetariumDomeSerializer()
+
     class Meta:
         model = ShowSession
+        fields = "__all__"
+
+
+class TicketSerializer(ModelSerializer):
+    """Serializer for displaying ticket details."""
+
+    show_session = StringRelatedField()
+
+    class Meta:
+        model = Ticket
+        exclude = ("reservation",)
+
+
+class TicketCreateSerializer(ModelSerializer):
+    """Serializer for creating tickets with validation to prevent seat duplication."""
+
+    show_session = serializers.PrimaryKeyRelatedField(queryset=ShowSession.objects.all())
+
+    class Meta:
+        model = Ticket
+        exclude = ("reservation",)
+        validators = (
+            UniqueTogetherValidator(
+                queryset=Ticket.objects.all().select_related("reservation", "show_session"),
+                fields=("row", "seat", "show_session"),
+                message="Seat is already taken."
+            ),
+        )
+
+
+class PaymentSerializer(ModelSerializer):
+    """Serializer for payment details."""
+
+    class Meta:
+        model = Payment
+        fields = ("id", "reservation", "session_url", "session_id", "amount_of_money", "status")
+        read_only_fields = ("id", "session_url", "session_id", "amount_of_money", "status")
+
+
+class ReservationSerializer(ModelSerializer):
+    """Serializer for reservation details, including user, tickets, and payment info."""
+
+    user = UserSerializer()
+    tickets = TicketSerializer(many=True)
+    payment = PaymentSerializer(read_only=True)
+
+    class Meta:
+        model = Reservation
+        fields = "__all__"
+
+
+class ReservationCreateSerializer(ModelSerializer):
+    """Serializer for creating reservations, adding tickets, and initiating Stripe payment."""
+
+    tickets = TicketCreateSerializer(many=True)
+    checkout_url = serializers.URLField(read_only=True)
+
+    class Meta:
+        model = Reservation
+        fields = ("tickets", "checkout_url")
+
+    @transaction.atomic
+    def create(self, validated_data):
+        """
+        Creates a reservation, adds tickets, and generates a Stripe Checkout session.
+        """
+        tickets_data = validated_data.pop("tickets")
+
+        user = self.context["request"].user
+
+        # Create a reservation
+        reservation = Reservation.objects.create(user=user)
+
+        # Add tickets
+        Ticket.objects.bulk_create(
+            [Ticket(reservation=reservation, **ticket_data) for ticket_data in tickets_data]
+        )
+
+        # Call the reusable method to create Stripe Checkout
+        checkout_url = reservation.create_stripe_checkout(self.context["request"])
+
+        reservation.checkout_url = checkout_url
+
+        return reservation
+
+
+class ReservationDetailSerializer(ModelSerializer):
+    """Detailed reservation serializer with user, tickets, and payment details."""
+
+    user = UserSerializer()
+    tickets = TicketSerializer(many=True)
+    payment = PaymentSerializer()
+
+    class Meta:
+        model = Reservation
         fields = "__all__"

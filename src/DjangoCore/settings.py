@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "debug_toolbar",
     'django_filters',
     'drf_spectacular',
+    'django_extensions',
 ]
 
 AUTH_USER_MODEL = 'planetarium.User'
@@ -168,7 +169,7 @@ REST_FRAMEWORK = {
 }
 
 
-ACCESS_TOKEN_LIFETIME = timedelta(minutes=15)
+ACCESS_TOKEN_LIFETIME = timedelta(days=15) # TODO Reminder DO not forget to change it back to minutes
 REFRESH_TOKEN_LIFETIME = timedelta(days=30)
 
 SIMPLE_JWT = {
