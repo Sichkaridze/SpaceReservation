@@ -1,6 +1,5 @@
 import stripe
 from django.conf import settings
-from django.contrib.auth.models import AnonymousUser
 from django.db import transaction
 from rest_framework import status
 from rest_framework.response import Response
@@ -17,7 +16,7 @@ from planetarium.serializers import (
     ShowThemeSerializer, AstronomyShowSerializer, ReservationSerializer,
     PlanetariumDomeSerializer, ShowSessionListSerializer,
     ShowSessionDetailSerializer, ShowSessionSerializer, UserSerializer,
-    ReservationCreateSerializer, ReservationDetailSerializer
+    ReservationCreateSerializer, ReservationDetailSerializer, EmptySerializer
 )
 
 
@@ -25,6 +24,7 @@ class StripeSuccessAPI(APIView):
     """
     Verifies successful payment using session_id.
     """
+    serializer_class = EmptySerializer
     permission_classes = (AllowAny,)
 
     @transaction.atomic
@@ -64,6 +64,7 @@ class StripeCancelAPI(APIView):
     """
     Handles cases where the user cancels the payment.
     """
+    serializer_class = EmptySerializer
     permission_classes = (AllowAny,)
 
     def get(self, request):

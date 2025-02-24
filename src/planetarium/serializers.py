@@ -9,6 +9,11 @@ from rest_framework.validators import UniqueTogetherValidator
 from planetarium.models import ShowTheme, AstronomyShow, Reservation, PlanetariumDome, Ticket, ShowSession, Payment
 
 
+class EmptySerializer(serializers.Serializer):
+    """Empty serializer for API views that do not require serialization."""
+    pass
+
+
 class UserSerializer(ModelSerializer):
     """Serializer for user data."""
 
