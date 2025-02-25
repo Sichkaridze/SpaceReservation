@@ -31,7 +31,9 @@ SECRET_KEY = os.environ.get("SECRET_KEY", 'django-insecure-r3z37pyw5f4y9zi0jp8l-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+FRONTEND_URL = "http://127.0.0.1:8000"
+
+ALLOWED_HOSTS = ["127.0.0.1", "0.0.0.0", "localhost"]
 
 INTERNAL_IPS = [
     "127.0.0.1",
@@ -58,12 +60,16 @@ INSTALLED_APPS = [
     'django_filters',
     'drf_spectacular',
     'django_extensions',
+    "django_celery_results",
+    "django_celery_beat",
+    "djcelery_email",
 ]
 
 AUTH_USER_MODEL = 'planetarium.User'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "debug_toolbar.middleware.DebugToolbarMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -97,12 +103,26 @@ WSGI_APPLICATION = 'DjangoCore.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+DB_SQLITE = "sqlite"
+DB_POSTGRESQL = "postgresql"
+
+DATABASES_ALL = {
+    DB_SQLITE: {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    },
+    DB_POSTGRESQL: {
+        "ENGINE": "django.db.backends.postgresql",
+        "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
+        "NAME": os.environ.get("POSTGRES_DB", "postgres"),
+        "USER": os.environ.get("POSTGRES_USER", "postgres"),
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "postgres"),
+        "PORT": int(os.environ.get("POSTGRES_DB_PORT", "5432")),
+    },
 }
+
+DATABASES = {"default": DATABASES_ALL[os.environ.get("DJANGO_DB", DB_SQLITE)]}
+
 
 
 # Password validation
@@ -144,7 +164,9 @@ DATETIME_FORMAT = 'd b Y - H:i:s'
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/django_static/'
+
+STATIC_ROOT = BASE_DIR / "django_static"
 
 MEDIA_ROOT = BASE_DIR / "media"
 
@@ -191,15 +213,29 @@ SPECTACULAR_SETTINGS = {
 
 # smpt server configuration
 # https://docs.djangoproject.com/en/5.1/topics/email/
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_BACKEND = "djcelery_email.backends.CeleryEmailBackend"
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
 EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "False") == "True"
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 
 # Stripe
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY")
 STRIPE_PUBLISHABLE_KEY = os.environ.get("STRIPE_PUBLISHABLE_KEY")
+
+
+# Celery
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_EMAIL_TASK_CONFIG = {
+    'name': 'djcelery_email_send_multiple',
+    'ignore_result': True,
+}

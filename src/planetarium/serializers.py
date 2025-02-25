@@ -1,5 +1,4 @@
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import AnonymousUser
 from django.db import transaction
 from rest_framework.relations import SlugRelatedField, StringRelatedField
 from rest_framework import serializers
@@ -7,6 +6,7 @@ from rest_framework.serializers import ModelSerializer
 from rest_framework.validators import UniqueTogetherValidator
 
 from planetarium.models import ShowTheme, AstronomyShow, Reservation, PlanetariumDome, Ticket, ShowSession, Payment
+from planetarium.services import send_verification_email
 
 
 class EmptySerializer(serializers.Serializer):
@@ -23,8 +23,15 @@ class UserSerializer(ModelSerializer):
         read_only_fields = ("id", "is_staff")
         extra_kwargs = {"password": {"write_only": True, "min_length": 8}}
 
+    @transaction.atomic
     def create(self, validated_data):
-        return get_user_model().objects.create_user(**validated_data)
+        """Create a user but set `is_active=False` and send a verification email."""
+        # validated_data["is_active"] = False  # User is inactive until email verification
+        # validated_data["verification_token"] = uuid.uuid4()  # Generate unique token
+
+        user = get_user_model().objects.create_user(**validated_data)
+        send_verification_email(user)
+        return user
 
     def update(self, instance, validated_data):
         password = validated_data.pop("password", None)

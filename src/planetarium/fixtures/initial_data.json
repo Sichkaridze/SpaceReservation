@@ -1,0 +1,49 @@
+[
+  {
+    "model": "planetarium.user",
+    "pk": 1,
+    "fields": {
+      "email": "admin@gmail.com",
+      "first_name": "Mario",
+      "last_name": "Benassi-Tossi",
+      "password": "pbkdf2_sha256$870000$fNJabTzwovOn4n4BqgfVfj$AUsAvXMNTlanDKvmB99vzHf+M++/2JfRfT3qoGjW2xw=",
+      "is_staff": true,
+      "is_superuser": true
+    }
+  },
+  {
+    "model": "planetarium.showtheme",
+    "pk": 1,
+    "fields": {
+      "name": "Cosmic Exploration"
+    }
+  },
+  {
+    "model": "planetarium.astronomyshow",
+    "pk": 1,
+    "fields": {
+      "title": "Journey Through the Stars",
+      "description": "An immersive experience of space travel."
+    }
+  },
+  {
+    "model": "planetarium.planetariumdome",
+    "pk": 1,
+    "fields": {
+      "name": "Main Dome",
+      "rows": 20,
+      "seats_in_row": 20
+    }
+  },
+  {
+    "model": "planetarium.showsession",
+    "pk": 1,
+    "fields": {
+      "astronomy_show": 1,
+      "planetarium_dome": 1,
+      "show_time": "2025-03-01T19:00:00Z",
+      "duration": "01:30:00",
+      "ticket_price": "12.75"
+    }
+  }
+]
