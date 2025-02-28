@@ -249,7 +249,7 @@ class Reservation(models.Model):
 
         # Create Payment record
         Payment.objects.create(
-            reservation=self,
+            reservation=self, # TODO додати боровінг
             session_id=checkout_session.id,
             session_url=checkout_session.url,
             amount_of_money=total_amount,
