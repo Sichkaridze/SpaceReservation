@@ -99,7 +99,7 @@ class ReservationViewSet(ModelViewSet):
     ViewSet for retrieving and creating reservations.
     Updating and deleting reservations is **not allowed**.
     """
-    queryset = Reservation.objects.all().select_related("user")
+    queryset = Reservation.objects.select_related("user")
     http_method_names = ["get", "post"]
 
     def get_permissions(self):
@@ -129,7 +129,7 @@ class ReservationViewSet(ModelViewSet):
         """
         user = self.request.user
         if user.is_staff:
-            return Reservation.objects.all().select_related("user")
+            return Reservation.objects.select_related("user")
         return Reservation.objects.filter(user=user)
 
     @transaction.atomic
@@ -167,7 +167,7 @@ class ReservationViewSet(ModelViewSet):
 class ShowSessionViewSet(ModelViewSet):
     """ViewSet for managing show sessions."""
 
-    queryset = ShowSession.objects.all().select_related("astronomy_show", "planetarium_dome")
+    queryset = ShowSession.objects.select_related("astronomy_show", "planetarium_dome")
 
     def get_serializer_class(self):
         if self.action == "list":

@@ -74,7 +74,7 @@ class ShowSessionSerializer(ModelSerializer):
         fields = "__all__"
         validators = (
             UniqueTogetherValidator(
-                queryset=ShowSession.objects.all().select_related("astronomy_show", "planetarium_dome"),
+                queryset=ShowSession.objects.select_related("astronomy_show", "planetarium_dome"),
                 fields=("planetarium_dome", "show_time"),
                 message="A show is already scheduled at this time in the selected dome. Please choose a different time or dome."
             ),
@@ -123,7 +123,7 @@ class TicketCreateSerializer(ModelSerializer):
         exclude = ("reservation",)
         validators = (
             UniqueTogetherValidator(
-                queryset=Ticket.objects.all().select_related("reservation", "show_session"),
+                queryset=Ticket.objects.select_related("reservation", "show_session"),
                 fields=("row", "seat", "show_session"),
                 message="Seat is already taken."
             ),
